@@ -1,65 +1,63 @@
 # BeatBee
 
-BeatBee prüft eine geordnete Liste von Discogs-Suchanfragen und sucht zuerst
-nach **Master-Releases**. Nur wenn die vollständige Master-Suche keine Treffer
-liefert, wird zusätzlich eine Discogs-Release-Suche als Album-Fallback ausgeführt.
-Die Release-Treffer sind diagnostische Links, keine Master-Treffer. Eine lokale
-HTML-Zusammenfassung zeigt Ergebnisse, Probleme und anklickbare Discogs-Links.
+BeatBee checks an ordered list of Discogs search queries, looking first for
+**Master releases**. Only when the complete Master search finds no matches does
+it run a Discogs release search as an album fallback. Release results are
+diagnostic links, not Master matches. A local HTML report shows the results,
+problems, and clickable Discogs links.
 
-BeatBee erstellt **keine Discogs-Liste automatisch**: Eine unterstützte
-Schreibschnittstelle für User Lists ist derzeit nicht bestätigt. Bei vollständig
-eindeutigen Ergebnissen kannst du eine Liste exportieren und sie auf Discogs
-manuell anlegen.
+BeatBee **does not automatically create a Discogs list**: a supported write
+interface for user lists has not been confirmed. When all results are
+unambiguous, you can export a list and create it manually on Discogs.
 
-## Voraussetzungen
+## Requirements
 
-- Python 3.11 oder neuer
-- Internetverbindung und ein Discogs-Konto
-- Ein persönlicher Discogs-Token für die API-Suche
+- Python 3.11 or newer
+- An internet connection and a Discogs account
+- A personal Discogs token for API searches
 
-Das Programm verwendet die Python-Standardbibliothek; für den Start über
-`main.py` müssen keine zusätzlichen Pakete installiert werden.
+The program uses the Python standard library; no additional packages are
+required to start it using `main.py`.
 
-## Discogs-Token erstellen
+## Create a Discogs token
 
-1. Melde dich auf [Discogs](https://www.discogs.com/) an.
-2. Öffne die [Discogs-Entwicklereinstellungen](https://www.discogs.com/settings/developers).
-3. Erstelle unter **Personal Access Token** bzw. **User Token** über
-   **Generate token** einen persönlichen Token. Die Beschriftung kann sich ändern.
-4. Kopiere den Token und behandle ihn wie ein Passwort.
+1. Sign in to [Discogs](https://www.discogs.com/).
+2. Open the [Discogs developer settings](https://www.discogs.com/settings/developers).
+3. Under **Personal Access Token** or **User Token**, select **Generate token**
+   to create a personal token. The labels may change.
+4. Copy the token and treat it like a password.
 
-Quelle: [Discogs API Authentication](https://www.discogs.com/developers/#page:authentication).
+Source: [Discogs API Authentication](https://www.discogs.com/developers/#page:authentication).
 
-### Token in JSON eintragen
+### Put the token in JSON
 
-Erstelle oder bearbeite `discogsToken.json` im Projektordner:
+Create or edit `discogsToken.json` in the project directory:
 
 ```json
 {
-  "discogs_token": "HIER_DEINEN_TOKEN_EINTRAGEN"
+  "discogs_token": "YOUR_TOKEN_HERE"
 }
 ```
 
-Der Wert ist ein Platzhalter: Ersetze ihn durch deinen eigenen Token.
-`discogsToken.json` ist in `.gitignore` eingetragen. Gib den Token nicht weiter
-und lade die Datei nicht in Git oder öffentliche Logs hoch. Falls ein Token
-versehentlich veröffentlicht wurde, widerrufe ihn bei Discogs und erstelle
-einen neuen.
+The value is a placeholder: replace it with your own token.
+`discogsToken.json` is listed in `.gitignore`. Do not share the token or upload
+the file to Git or public logs. If a token is accidentally exposed, revoke it on
+Discogs and create a new one.
 
-### Alternative: Umgebungsvariable
+### Alternative: environment variable
 
-Für die aktuelle PowerShell-Sitzung:
+For the current PowerShell session:
 
 ```powershell
-$env:DISCOGS_TOKEN = "HIER_DEINEN_TOKEN_EINTRAGEN"
+$env:DISCOGS_TOKEN = "YOUR_TOKEN_HERE"
 ```
 
-`DISCOGS_TOKEN` hat Vorrang vor der Token-Datei. Vermeide es, echte Tokens in
-Skripten oder gemeinsam genutzten Terminalprotokollen zu speichern.
+`DISCOGS_TOKEN` takes precedence over the token file. Avoid storing real tokens
+in scripts or shared terminal logs.
 
-## Eingabe: Suchliste
+## Input: search list
 
-Lege im Projektordner eine UTF-8-Datei `discogsList.json` an oder bearbeite sie:
+Create or edit a UTF-8 file named `discogsList.json` in the project directory:
 
 ```json
 {
@@ -71,158 +69,151 @@ Lege im Projektordner eine UTF-8-Datei `discogsList.json` an oder bearbeite sie:
 }
 ```
 
-| Angabe | Bedeutung |
+| Field | Meaning |
 | --- | --- |
-| `list_name` | Nicht leerer Name der Liste; Unicode und Schreibweise bleiben erhalten. |
-| `records` | Nicht leere, geordnete Liste von Suchobjekten. Jedes Objekt ist eine eigenständige Discogs-Suche. |
-| `artist` | Suchbegriff für den Künstler. |
-| `release_title` | Suchbegriff für den Album- bzw. Release-Titel. |
-| `year` | Erscheinungsjahr als Zeichenkette oder ganze Zahl. |
-| `q` | Allgemeiner Suchbegriff, alternativ oder zusätzlich zu anderen Suchfeldern. |
+| `list_name` | Nonempty list name; Unicode and spelling are preserved. |
+| `records` | Nonempty, ordered list of search objects. Each object is a separate Discogs search. |
+| `artist` | Artist search term. |
+| `release_title` | Album or release title search term. |
+| `year` | Release year as a string or integer. |
+| `q` | General search term, optionally combined with other search fields. |
 
-`artist`, `release_title`, `year` und `q` sind Beispiele, keine Pflichtfelder.
-Weitere derzeit akzeptierte Suchparameter sind `title`, `genre`, `style`,
-`country`, `format`, `label`, `catno`, `barcode`, `track`, `credit`, `anv`,
-`submitter` und `contributor`. Die Werte müssen nicht leere Zeichenketten oder
-ganze Zahlen sein. Ein Suchobjekt darf nicht leer sein.
+`artist`, `release_title`, `year`, and `q` are examples, not required fields.
+Other currently accepted parameters are `title`, `genre`, `style`, `country`,
+`format`, `label`, `catno`, `barcode`, `track`, `credit`, `anv`, `submitter`,
+and `contributor`. Values must be nonempty strings or integers. A search object
+must not be empty.
 
-BeatBee sucht zuerst mit `type=master`; `type: "master"` ist in der Eingabe
-optional erlaubt, andere Typen werden abgelehnt. Für den Album-Fallback setzt
-BeatBee selbst `type=release`, ohne die Eingabe zu verändern. `page` und
-`per_page` verwaltet BeatBee selbst. Unbekannte Felder und ungültiges JSON
-werden vor der ersten API-Anfrage abgewiesen. Reihenfolge und doppelte Einträge
-bleiben erhalten.
+BeatBee first searches with `type=master`; `type: "master"` is optional in the
+input, and other types are rejected. For the album fallback, BeatBee sets
+`type=release` itself without changing the input. BeatBee manages `page` and
+`per_page`. Unknown fields and invalid JSON are rejected before the first API
+request. Order and duplicate entries are preserved.
 
-## Start und Ablauf
+## Running BeatBee
 
-Im Projektordner:
+In the project directory:
 
 ```powershell
 python main.py
 ```
 
-Alternativ mit einer vorhandenen virtuellen Umgebung:
+Alternatively, with an existing virtual environment:
 
 ```powershell
 .venv\Scripts\python.exe main.py
 ```
 
-Ohne Argumente verwendet das Programm `discogsList.json` und den Token aus
-`DISCOGS_TOKEN` oder `discogsToken.json`. Eine andere Eingabedatei kannst du
-ausdrücklich angeben:
+Without arguments, the program uses `discogsList.json` and the token from
+`DISCOGS_TOKEN` or `discogsToken.json`. You can specify a different input file:
 
 ```powershell
-python main.py validate meine-liste.json
+python main.py validate my-list.json
 python main.py --help
 ```
 
-Während der Suche zeigt das Terminal einen Fortschrittsbalken mit Prozentsatz und
-Anzahl bearbeiteter Einträge. Auch fehlgeschlagene Suchen zählen als bearbeitet.
-Anschließend wird der Pfad des HTML-Berichts ausgegeben. Für
-`discogsList.json` heißt er `discogsList.summary.html` und liegt neben der
-Eingabedatei. Öffne ihn lokal im Browser; ein Webserver ist nicht nötig. Ein
-erneuter Lauf ersetzt den vorherigen Bericht.
+During the search, the terminal shows a progress bar with the percentage and
+number of processed entries. Failed searches also count as processed. The
+program then prints the HTML report path. For `discogsList.json`, the report is
+named `discogsList.summary.html` and is placed next to the input file. Open it
+locally in a browser; no web server is required. A new run replaces the previous
+report.
 
-BeatBee begrenzt Discogs-Anfragen auf mindestens 1,25 Sekunden Abstand und
-berücksichtigt die Rate-Limit-Header. Bei HTTP `429` wartet es entsprechend
-`Retry-After`, andernfalls 60 Sekunden, und versucht die Anfrage erneut.
-Sehr lange serverseitige Wartezeiten über fünf Minuten werden als Fehler
-ausgegeben; BeatBee sendet während der Sperrzeit keine weiteren Anfragen.
-Die Begrenzung gilt pro Programmlauf; parallele Programme können sich
-dennoch gegenseitig ins Rate-Limit bringen.
+BeatBee spaces Discogs requests at least 1.25 seconds apart and takes rate-limit
+headers into account. On HTTP `429`, it waits according to `Retry-After`, or
+60 seconds if that header is absent, before retrying. Server-requested waits
+over five minutes are reported as errors; BeatBee does not send further
+requests during the cooldown. The limit applies per program run, so parallel
+programs can still collectively reach the rate limit.
 
-## HTML-Bericht verstehen
+## Understanding the HTML report
 
-Der Bericht enthält die Listenbezeichnung, Gesamt- und Statuszahlen sowie alle
-Einträge in diesen Gruppen:
+The report contains the list name, total and status counts, and all entries in
+these groups:
 
-- **OK:** Genau eine eindeutige Master-ID wurde gefunden.
-- **NOT_FOUND:** Keine Master-ID wurde gefunden. BeatBee sucht dann zusätzlich
-  nach Discogs-Releases und zeigt höchstens drei Links als Diagnose. Die Suche
-  ist nicht auf das Discogs-Format „Album“ beschränkt. Release-Treffer zählen
-  nicht als Master-Treffer und können nicht exportiert werden.
-- **MULTIPLE:** Mehr als eine eindeutige Master-ID wurde gefunden. Bis zu drei
-  deterministisch sortierte Kandidaten mit Links dienen nur als Hinweise;
-  BeatBee wählt keinen davon aus.
-- **ERROR:** Eine erforderliche Suche war technisch fehlerhaft oder
-  unvollständig, etwa durch ein Netzwerkproblem oder ein erreichtes Suchlimit.
+- **OK:** Exactly one distinct Master ID was found.
+- **NOT_FOUND:** No Master ID was found. BeatBee also searches for Discogs
+  releases and displays up to three links for diagnosis. This search is not
+  limited to the Discogs "Album" format. Release results do not count as Master
+  matches and cannot be exported.
+- **MULTIPLE:** More than one distinct Master ID was found. Up to three
+  deterministically sorted candidates with links are shown as suggestions only;
+  BeatBee does not choose one.
+- **ERROR:** A required search failed or was incomplete, for example because of
+  a network problem or a search limit.
 
-Am Ende stehen die `OK`-Master in ursprünglicher Reihenfolge mit Künstler,
-Album, Master-ID und Discogs-Hyperlink. Künstler und Album sind entsprechend
-gekennzeichnet, wenn sie aus dem Discogs-Suchtitel abgeleitet oder aus der
-Suchanfrage übernommen wurden. Fehlende Angaben werden als nicht verfügbar
-gezeigt. Suchergebnisse werden anhand der Anzahl eindeutiger Master-IDs
-klassifiziert, nicht durch eine zusätzliche semantische Prüfung von Titel oder
-Jahr.
+The report ends with the `OK` Masters in their original order, including artist,
+album, Master ID, and Discogs link. Artist and album values are labeled when
+parsed from the Discogs search title or taken from the query. Missing details
+are shown as unavailable. Results are classified by the number of distinct
+Master IDs, without an additional semantic check of the title or year.
 
-Bei `NOT_FOUND` oder `MULTIPLE` bearbeitest du die Suchparameter selbst in
-der JSON-Datei und startest die Prüfung erneut. Bei `ERROR` prüfe die Verbindung
-oder den Token und versuche es erneut. Der Bericht enthält außerdem eine
-maschinenlesbare JSON-Zusammenfassung; bei ausschließlich `OK`-Ergebnissen ist
-darin auch das geordnete Manifest enthalten.
+For `NOT_FOUND` or `MULTIPLE`, edit the search parameters in the JSON file and
+run the validation again. For `ERROR`, check the connection or token and try
+again. The report also includes a machine-readable JSON summary; when every
+result is `OK`, it contains the ordered manifest as well.
 
-## Manuelle Discogs-Liste und Export
+## Manual Discogs list and export
 
-Erst wenn **alle** Einträge `OK` sind, kannst du eine geordnete Checkliste oder
-ein JSON-Manifest exportieren:
+Only when **all** entries are `OK` can you export an ordered checklist or JSON
+manifest:
 
 ```powershell
 python main.py export discogsList.json --format markdown --output beatbee-list.md
 python main.py export discogsList.json --format json --output beatbee-list.json
 ```
 
-Die Markdown-Checkliste enthält Master-Links; das JSON enthält den Listennamen
-und die Master-IDs in Eingabereihenfolge. Erstelle die Liste anschließend selbst
-auf Discogs und übertrage die Einträge in dieser Reihenfolge. Der Export ist
-**keine Veröffentlichung**.
+The Markdown checklist contains Master links; the JSON contains the list name
+and Master IDs in input order. Create the list yourself on Discogs and transfer
+the entries in that order. The export **is not a publication**.
 
-`python main.py run discogsList.json` prüft ebenfalls die Liste und erreicht bei
-vollständig eindeutigen Ergebnissen die Publishing-Grenze. Da kein verifizierter
-Publisher verfügbar ist, meldet `run` derzeit „Publishing unavailable“ und
-beendet sich mit Code `4`. Optional schreibt `--manifest DATEI.json` dann ein
-Manifest. Kein nicht-`OK`-Ergebnis darf veröffentlicht werden.
+`python main.py run discogsList.json` also checks the list and reaches the
+publishing boundary when all results are unambiguous. Since no verified
+publisher is available, `run` currently reports "Publishing unavailable" and
+exits with code `4`. Optionally, `--manifest FILE.json` writes a manifest.
+No non-`OK` result may be published.
 
-## Exit-Codes
+## Exit codes
 
-| Code | Bedeutung |
+| Code | Meaning |
 | --- | --- |
-| `0` | Validierung oder manueller Export erfolgreich. |
-| `1` | Mindestens ein Eintrag ist `NOT_FOUND` oder `MULTIPLE`. |
-| `2` | Die Eingabe ist ungültig oder kann nicht gelesen werden. |
-| `3` | Mindestens eine Suche ist `ERROR` oder der HTML-Bericht konnte nicht geschrieben werden. |
-| `4` | Publishing ist fehlgeschlagen oder nicht verfügbar. |
+| `0` | Validation or manual export succeeded. |
+| `1` | At least one entry is `NOT_FOUND` or `MULTIPLE`. |
+| `2` | The input is invalid or cannot be read. |
+| `3` | At least one search is `ERROR`, or the HTML report could not be written. |
+| `4` | Publishing failed or is unavailable. |
 
-## Projektdateien und Git
+## Project files and Git
 
-Ins Repository gehören `main.py`, `pyproject.toml`, `src/beatbee/`, `tests/`,
-`README.md`, `SPEC.md`, `docs/`, `.gitignore` und die Projektanweisungen in
-`.github/`. Für den Standardstart ohne Argumente wird außerdem
-`discogsList.json` benötigt; alternativ legst du diese Datei nach dem Klonen
-selbst an oder gibst eine andere Eingabedatei an. Die Datei ist nicht ignoriert:
-Prüfe ihren Inhalt, bevor du sie committest und hochlädst.
+The repository should contain `main.py`, `pyproject.toml`, `src/beatbee/`,
+`tests/`, `README.md`, `SPEC.md`, `docs/`, `.gitignore`, and the project
+instructions in `.github/`. The default start without arguments also requires
+`discogsList.json`; alternatively, create it after cloning or specify another
+input file. The file is not ignored: check its contents before committing and
+pushing it.
 
-Die Token-Datei `discogsToken.json`, `.venv/`, Python-Caches, Build-Dateien,
-HTML-Berichte `*.summary.html` und die oben gezeigten Exportdateien bleiben
-durch `.gitignore` lokal. Der Token muss nach einem frischen Klon selbst
-eingerichtet werden. Andere frei gewählte Exportdateien sind nicht automatisch
-ignoriert und sollten vor einem Commit geprüft werden.
+The token file `discogsToken.json`, `.venv/`, Python caches, build files, HTML
+reports `*.summary.html`, and the export files shown above remain local through
+`.gitignore`. You must configure your own token after a fresh clone. Other
+export filenames are not automatically ignored and should be checked before
+committing.
 
 ## Tests
 
-Die Tests verwenden simulierte Discogs-Antworten und benötigen keinen Token.
-Im Projektordner unter PowerShell:
+The tests use mocked Discogs responses and do not require a token. Run them in
+the project directory using PowerShell:
 
 ```powershell
 $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-## Weitere Dokumentation
+## Further documentation
 
-- [Spezifikation](SPEC.md)
-- [Suchstrategie](docs/SEARCH_STRATEGY.md)
-- [Publishing und Machbarkeitsprüfung](docs/PUBLISHING.md)
-- [Architektur](docs/ARCHITECTURE.md)
-- [Entscheidungen](docs/DECISIONS.md)
-- [Offene Fragen](docs/OPEN_QUESTIONS.md)
+- [Specification](SPEC.md)
+- [Search strategy](docs/SEARCH_STRATEGY.md)
+- [Publishing and feasibility](docs/PUBLISHING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Decisions](docs/DECISIONS.md)
+- [Open questions](docs/OPEN_QUESTIONS.md)
 - [Roadmap](docs/ROADMAP.md)
