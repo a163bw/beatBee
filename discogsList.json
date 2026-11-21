@@ -1,0 +1,504 @@
+{
+  "list_name": "telex: A 100 legfontosabb magyar lemez",
+  "records": [
+    {
+      "artist": "Gábor Szabó",
+      "release_title": "Dreams",
+      "year": "1968"
+    },
+    {
+      "artist": "Omega",
+      "release_title": "10000 lépés",
+      "year": "1969"
+    },
+    {
+      "artist": "Kex",
+      "release_title": "Kex 1969-1971",
+      "year": "1971"
+    },
+    {
+      "artist": "Illés",
+      "release_title": "Add a kezed",
+      "year": "1972"
+    },
+    {
+      "artist": "Syrius",
+      "release_title": "Az ördög álarcosbálja",
+      "year": "1972"
+    },
+    {
+      "artist": "Bergendy Együttes",
+      "release_title": "Hétfő (Hét fő)",
+      "year": "1973"
+    },
+    {
+      "artist": "Generál",
+      "release_title": "Staféta",
+      "year": "1973"
+    },
+    {
+      "artist": "Halász Judit",
+      "release_title": "Kép a tükörben",
+      "year": "1973"
+    },
+    {
+      "artist": "Koncz Zsuzsa",
+      "release_title": "Jelbeszéd",
+      "year": "1973"
+    },
+    {
+      "artist": "Locomotiv GT",
+      "release_title": "Bummm!",
+      "year": "1973"
+    },
+    {
+      "artist": "Presser Gábor, Adamis Anna",
+      "release_title": "Képzelt riport egy amerikai popfesztiválról",
+      "year": "1973"
+    },
+    {
+      "q": "Kovács Kati és az Locomotiv GT",
+      "year": "1974"
+    },
+    {
+      "artist": "Cseh Tamás, Másik János",
+      "release_title": "Levél nővéremnek",
+      "year": "1977"
+    },
+    {
+      "artist": "Fonográf",
+      "release_title": "Edison-Fonográf Album",
+      "year": "1977"
+    },
+    {
+      "artist": "Piramis",
+      "release_title": "Piramis",
+      "year": "1977"
+    },
+    {
+      "artist": "Mini",
+      "release_title": "Vissza a városba",
+      "year": "1978"
+    },
+    {
+      "artist": "Edda Művek",
+      "release_title": "Edda Művek",
+      "year": "1980"
+    },
+    {
+      "artist": "Korál",
+      "release_title": "Korál",
+      "year": "1980"
+    },
+    {
+      "artist": "Hungaria",
+      "release_title": "Hotel Menthol",
+      "year": "1981"
+    },
+    {
+      "artist": "Katona Klári",
+      "release_title": "Titkaim",
+      "year": "1981"
+    },
+    {
+      "artist": "P. Mobil",
+      "release_title": "Mobilizmo",
+      "year": "1981"
+    },
+    {
+      "artist": "V'Moto-Rock",
+      "release_title": "Gyertyák",
+      "year": "1982"
+    },
+    {
+      "artist": "A. E. Bizottság",
+      "release_title": "Kalandra fel!!",
+      "year": "1983"
+    },
+    {
+      "artist": "Kontroll Csoport",
+      "release_title": "1983",
+      "year": "1983"
+    },
+    {
+      "artist": "Nagy Feró és a Bikini",
+      "release_title": "Hova lett…",
+      "year": "1983"
+    },
+    {
+      "artist": "R-GO",
+      "release_title": "R-GO",
+      "year": "1983"
+    },
+    {
+      "artist": "Szörényi Levente, Bródy János",
+      "release_title": "István, a király",
+      "year": "1983"
+    },
+    {
+      "artist": "Deák Bill Gyula",
+      "release_title": "Rossz vér",
+      "year": "1984"
+    },
+    {
+      "artist": "Hobo Blues Band",
+      "release_title": "Vadászat",
+      "year": "1984"
+    },
+    {
+      "artist": "KFT",
+      "release_title": "Bál az operában",
+      "year": "1984"
+    },
+    {
+      "artist": "Solaris",
+      "release_title": "Marsbéli Krónikák",
+      "year": "1984"
+    },
+    {
+      "artist": "Trabant",
+      "release_title": "Trabant",
+      "year": "1984"
+    },
+    {
+      "artist": "Muzsikás",
+      "release_title": "Nem arról hajnalik, amerről hajnallott",
+      "year": "1986"
+    },
+    {
+      "artist": "Európa Kiadó",
+      "release_title": "Popzene",
+      "year": "1987"
+    },
+    {
+      "artist": "Neurotic",
+      "release_title": "Budapesti látnok",
+      "year": "1987"
+    },
+    {
+      "artist": "Beatrice",
+      "release_title": "'78-'88",
+      "year": "1988"
+    },
+    {
+      "artist": "Vágtázó Halottkémek (VHK)",
+      "release_title": "A Halál móresre tanítása",
+      "year": "1988"
+    },
+    {
+      "artist": "Bonanza Banzai",
+      "release_title": "Induljon a banzáj!",
+      "year": "1989"
+    },
+    {
+      "artist": "Máté Péter",
+      "release_title": "Egy darabot a szívemből",
+      "year": "1989"
+    },
+    {
+      "artist": "Tormentor",
+      "release_title": "Anno Domini",
+      "year": "1989"
+    },
+    {
+      "artist": "F.O. System",
+      "release_title": "F.O. System",
+      "year": "1990"
+    },
+    {
+      "artist": "Kispál és a Borz",
+      "release_title": "Naphoz holddal",
+      "year": "1991"
+    },
+    {
+      "artist": "Pál Utcai Fiúk",
+      "release_title": "A bál",
+      "year": "1991"
+    },
+    {
+      "artist": "Rapülők",
+      "release_title": "Rapülők",
+      "year": "1992"
+    },
+    {
+      "artist": "Tankcsapda",
+      "release_title": "A legjobb méreg",
+      "year": "1992"
+    },
+    {
+      "artist": "Leukémia",
+      "release_title": "Közel a fejhajlító-géphez",
+      "year": "1993"
+    },
+    {
+      "artist": "Charlie",
+      "release_title": "Charlie",
+      "year": "1994"
+    },
+    {
+      "artist": "Animal Cannibals",
+      "release_title": "Fehéren fekete, feketén fehér",
+      "year": "1995"
+    },
+    {
+      "artist": "Anima Sound System",
+      "release_title": "Anima",
+      "year": "1997"
+    },
+    {
+      "artist": "Ganxsta Zolee és a Kartel",
+      "release_title": "Jégre teszlek",
+      "year": "1997"
+    },
+    {
+      "artist": "Junkies",
+      "release_title": "Nihil",
+      "year": "1997"
+    },
+    {
+      "artist": "Fekete Vonat",
+      "release_title": "Fekete Vonat",
+      "year": "1998"
+    },
+    {
+      "artist": "Másfél",
+      "release_title": "Katasztrófamámor",
+      "year": "1998"
+    },
+    {
+      "artist": "Quimby",
+      "release_title": "Ékszerelmére",
+      "year": "1999"
+    },
+    {
+      "artist": "Sub Bass Monster",
+      "release_title": "Félre az útból!",
+      "year": "1999"
+    },
+    {
+      "artist": "Amorf Ördögök",
+      "release_title": "Betyár a holdon",
+      "year": "2000"
+    },
+    {
+      "artist": "Heaven Street Seven",
+      "release_title": "Cukor",
+      "year": "2000"
+    },
+    {
+      "artist": "Hiperkarma",
+      "release_title": "Hiperkarma",
+      "year": "2000"
+    },
+    {
+      "artist": "Yonderboi",
+      "release_title": "Shallow and Profound",
+      "year": "2000"
+    },
+    {
+      "artist": "Emil.Rulez!",
+      "release_title": "Zazie az ágyban",
+      "year": "2001"
+    },
+    {
+      "artist": "Bëlga",
+      "release_title": "Majd megszokod",
+      "year": "2001"
+    },
+    {
+      "artist": "Žagar",
+      "release_title": "Local Broadcast",
+      "year": "2001"
+    },
+    {
+      "artist": "Bankos",
+      "release_title": "Rapmotel",
+      "year": "2003"
+    },
+    {
+      "artist": "Neo",
+      "release_title": "Kontroll (A filmzene)",
+      "year": "2003"
+    },
+    {
+      "artist": "Sena",
+      "release_title": "First One",
+      "year": "2003"
+    },
+    {
+      "artist": "Akkezdet Phiai",
+      "release_title": "Akkezdet",
+      "year": "2004"
+    },
+    {
+      "artist": "Erik Sumo Band",
+      "release_title": "My Rocky Mountain",
+      "year": "2005"
+    },
+    {
+      "artist": "30Y",
+      "release_title": "Csészényi tér",
+      "year": "2006"
+    },
+    {
+      "artist": "NKS",
+      "release_title": "*****",
+      "year": "2006"
+    },
+    {
+      "artist": "Irie Maffia",
+      "release_title": "Fel a kezekkel!",
+      "year": "2007"
+    },
+    {
+      "artist": "The Moog",
+      "release_title": "Sold For Tomorrow",
+      "year": "2007"
+    },
+    {
+      "artist": "Péterfy Bori & Love Band",
+      "release_title": "Péterfy Bori & Love Band",
+      "year": "2007"
+    },
+    {
+      "artist": "Vanis & Crain",
+      "release_title": "Mekvárt Szleng",
+      "year": "2007"
+    },
+    {
+      "artist": "Bobafett & Bobakrome",
+      "release_title": "Aludnifogtál",
+      "year": "2008"
+    },
+    {
+      "artist": "Isten Háta Mögött",
+      "release_title": "A kényelmetlen lemez",
+      "year": "2008"
+    },
+    {
+      "artist": "Óriás",
+      "release_title": "Jön.",
+      "year": "2008"
+    },
+    {
+      "artist": "Punnany Massif",
+      "release_title": "Shen Kick",
+      "year": "2010"
+    },
+    {
+      "artist": "Bajdázó",
+      "release_title": "Lekapcsolom a villanyt a fejemben",
+      "year": "2011"
+    },
+    {
+      "artist": "Supernem",
+      "release_title": "Tudományosfantasztikuspop",
+      "year": "2011"
+    },
+    {
+      "artist": "Thy Catafalque",
+      "release_title": "Rengeteg",
+      "year": "2011"
+    },
+    {
+      "artist": "Ivan & the Parazol",
+      "release_title": "Mama, Don’t You Recognize Ivan & the Parazol?",
+      "year": "2012"
+    },
+    {
+      "artist": "Middlemist Red",
+      "release_title": "Supersonic Overdrive",
+      "year": "2014"
+    },
+    {
+      "artist": "Csaknekedkislány",
+      "release_title": "Na ná ba bám",
+      "year": "2015"
+    },
+    {
+      "artist": "Szabó Benedek és a Galaxisok",
+      "release_title": "A legszebb éveink",
+      "year": "2015"
+    },
+    {
+      "artist": "Mayberian Sanskülotts",
+      "release_title": "Adlait",
+      "year": "2016"
+    },
+    {
+      "artist": "Ricsárdgír",
+      "release_title": "The Dark Side of the Moon",
+      "year": "2016"
+    },
+    {
+      "artist": "Krúbi",
+      "release_title": "Nehézlábérzés",
+      "year": "2018"
+    },
+    {
+      "artist": "The Qualitons",
+      "release_title": "Echoes Calling",
+      "year": "2018"
+    },
+    {
+      "artist": "Elefánt",
+      "release_title": "El",
+      "year": "2019"
+    },
+    {
+      "artist": "Jazzbois",
+      "release_title": "Jazzbois Goes Blunt",
+      "year": "2019"
+    },
+    {
+      "artist": "Carson Coma",
+      "release_title": "Lesz, ami lesz",
+      "year": "2020"
+    },
+    {
+      "artist": "Analog Balaton",
+      "release_title": "Lent",
+      "year": "2021"
+    },
+    {
+      "artist": "Barkóczi Noémi",
+      "release_title": "Dolgom volt",
+      "year": "2021"
+    },
+    {
+      "artist": "Holi",
+      "release_title": "Sírok és nevetek",
+      "year": "2021"
+    },
+    {
+      "artist": "Beton.Hofi",
+      "release_title": "Playbánia",
+      "year": "2022"
+    },
+    {
+      "artist": "Дeva",
+      "release_title": "Csillag",
+      "year": "2022"
+    },
+    {
+      "artist": "Platon Karataev",
+      "release_title": "Partért kiáltó",
+      "year": "2022"
+    },
+    {
+      "artist": "Azahriah",
+      "release_title": "Memento",
+      "year": "2023"
+    },
+    {
+      "artist": "Baba Aziz",
+      "release_title": "R.I.P.",
+      "year": "2023"
+    },
+    {
+      "artist": "Pogány Induló",
+      "release_title": "Megáll az idő",
+      "year": "2023"
+    }
+  ]
+}
