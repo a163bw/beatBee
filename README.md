@@ -16,8 +16,12 @@ unambiguous, you can export a list and create it manually on Discogs.
 - An internet connection and a Discogs account
 - A personal Discogs token for API searches
 
-The program uses the Python standard library; no additional packages are
-required to start it using `main.py`.
+The program uses the Python standard library for the CLI.
+
+**For the interactive web application, Flask is required:**
+```bash
+pip install flask
+```
 
 ## Create a Discogs token
 
@@ -92,6 +96,8 @@ request. Order and duplicate entries are preserved.
 
 ## Running BeatBee
 
+### Command-Line Interface (CLI)
+
 In the project directory:
 
 ```powershell
@@ -111,6 +117,36 @@ Without arguments, the program uses `discogsList.json` and the token from
 python main.py validate my-list.json
 python main.py --help
 ```
+
+### Interactive Web Application
+
+**Installation (required once):**
+```powershell
+pip install flask
+```
+
+Start the local web server:
+
+```powershell
+python web.py
+```
+
+Then open your browser to `http://localhost:5000/`.
+
+The web interface allows you to:
+- Upload and edit JSON configurations
+- Validate and search interactively
+- Review and edit search parameters
+- Download results as JSON and HTML
+- Export combined results as ZIP
+
+For advanced options:
+
+```powershell
+python main.py web --port 8080 --host localhost --debug
+```
+
+See [docs/WEB_INTERACTIVE.md](docs/WEB_INTERACTIVE.md) for full web app documentation and [HANDOFF.md](HANDOFF.md) for troubleshooting.
 
 During the search, the terminal shows a progress bar with the percentage and
 number of processed entries. Failed searches also count as processed. The
@@ -211,9 +247,13 @@ python -m unittest discover -s tests -p "test_*.py"
 ## Further documentation
 
 - [Specification](SPEC.md)
+- [Project Handoff](HANDOFF.md)
+- [Implementation Summary](IMPLEMENTATION_SUMMARY.md)
 - [Search strategy](docs/SEARCH_STRATEGY.md)
 - [Publishing and feasibility](docs/PUBLISHING.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Decisions](docs/DECISIONS.md)
 - [Open questions](docs/OPEN_QUESTIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Web App Guide](docs/WEB_INTERACTIVE.md)
+- [Web App Technical Report](docs/WEB_IMPLEMENTATION_REPORT.md)
