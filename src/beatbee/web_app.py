@@ -61,8 +61,8 @@ TEMPLATE = """
         }
         .content {
             padding: 40px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 40px;
         }
         .panel {
@@ -99,6 +99,11 @@ TEMPLATE = """
             min-height: 300px;
             resize: vertical;
         }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -109,6 +114,8 @@ TEMPLATE = """
             font-size: 1em;
             font-weight: 600;
             transition: transform 0.2s, box-shadow 0.2s;
+            flex: 1;
+            min-width: 150px;
         }
         button:hover {
             transform: translateY(-2px);
@@ -117,9 +124,39 @@ TEMPLATE = """
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
         .btn-secondary {
             background: #6c757d;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
         }
         .status-box {
             background: #f8f9fa;
@@ -201,15 +238,13 @@ TEMPLATE = """
         .result-item.not-found { border-left-color: #ffc107; }
         .result-item.multiple { border-left-color: #17a2b8; }
         .result-item.error { border-left-color: #dc3545; }
-        .full-width {
-            grid-column: 1 / -1;
-        }
         @media (max-width: 1024px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            button {
+                flex: none;
+                min-width: auto;
             }
         }
     </style>
@@ -222,6 +257,7 @@ TEMPLATE = """
         </header>
 
         <div class="content">
+            <!-- Input & Control Panel - First -->
             <div class="panel">
                 <h2>Input & Control</h2>
                 
@@ -230,14 +266,25 @@ TEMPLATE = """
                     <textarea id="json-input" placeholder="Paste or edit your JSON here..."></textarea>
                 </div>
 
-                <button onclick="loadJSON()">Load JSON</button>
-                <button onclick="validateAndSearch()" class="btn-secondary">Validate & Search</button>
-                <button onclick="resetInput()" class="btn-secondary">Reset</button>
-                <button onclick="downloadJSON()" class="btn-secondary">Download JSON</button>
-                <button onclick="downloadAll()" class="btn-secondary">Download All (ZIP)</button>
+                <div class="button-group">
+                    <button onclick="loadJSON()">Load JSON</button>
+                    <button onclick="validateAndSearch()" class="btn-secondary">Validate & Search</button>
+                    <button onclick="resetInput()" class="btn-secondary">Reset</button>
+                    <button onclick="downloadJSON()" class="btn-secondary">Download JSON</button>
+                    <button onclick="downloadAll()" class="btn-secondary">Download All (ZIP)</button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container" id="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="progress-fill">0%</div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Searching...</div>
+                </div>
             </div>
 
-            <div class="panel">
+            <!-- Validation Status Panel -->
+            <div class="panel" id="validation-panel" style="display: none;">
                 <h2>Validation Status</h2>
                 <div id="status-box" class="status-box" style="display: none;"></div>
                 
@@ -247,7 +294,8 @@ TEMPLATE = """
                 </div>
             </div>
 
-            <div class="panel full-width" id="resolved-panel" style="display: none;">
+            <!-- Resolved Results Panel -->
+            <div class="panel" id="resolved-panel" style="display: none;">
                 <h2>Resolved Results</h2>
                 <table class="results-table" id="resolved-table">
                     <thead>
@@ -299,27 +347,70 @@ TEMPLATE = """
             }
         }
 
-        async function validateAndSearch() {
-            const response = await fetch('/api/validate', { method: 'POST' });
-            const result = await response.json();
+        function showProgress(percentage, text) {
+            const container = document.getElementById('progress-container');
+            const fill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
             
-            if (result.status === 'error') {
-                showStatus(result.message, 'status-error');
-                return;
-            }
+            container.style.display = 'block';
+            fill.style.width = percentage + '%';
+            fill.textContent = percentage + '%';
+            progressText.textContent = text;
+        }
 
-            displaySummary(result);
-            displayResults(result);
-            displayResolvedTable(result.resolved || []);
+        function hideProgress() {
+            const container = document.getElementById('progress-container');
+            container.style.display = 'none';
+        }
+
+        async function validateAndSearch() {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(b => b.disabled = true);
+            
+            showProgress(0, 'Starting search...');
+            
+            try {
+                const response = await fetch('/api/validate', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showStatus(result.message, 'status-error');
+                    hideProgress();
+                    buttons.forEach(b => b.disabled = false);
+                    return;
+                }
+
+                // Simulate progress updates (in a real scenario, this would come from the server)
+                for (let i = 0; i < 100; i += 20) {
+                    showProgress(i, `Processing ${i}%...`);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                showProgress(100, 'Complete!');
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                displaySummary(result);
+                displayResults(result);
+                displayResolvedTable(result.resolved || []);
+                hideProgress();
+            } catch (e) {
+                showStatus('Search failed: ' + e.message, 'status-error');
+                hideProgress();
+            } finally {
+                buttons.forEach(b => b.disabled = false);
+            }
         }
 
         async function resetInput() {
             const response = await fetch('/api/reset', { method: 'POST' });
             const result = await response.json();
             showStatus(result.message, result.status === 'ok' ? 'status-ok' : 'status-error');
+            document.getElementById('validation-panel').style.display = 'none';
+            document.getElementById('resolved-panel').style.display = 'none';
             document.getElementById('status-box').style.display = 'none';
             document.getElementById('summary-cards').style.display = 'none';
             document.getElementById('results-container').innerHTML = '';
+            hideProgress();
         }
 
         async function downloadJSON() {
@@ -346,9 +437,11 @@ TEMPLATE = """
 
         function showStatus(message, className) {
             const box = document.getElementById('status-box');
+            const panel = document.getElementById('validation-panel');
             box.className = 'status-box ' + className;
             box.textContent = message;
             box.style.display = 'block';
+            panel.style.display = 'block';
         }
 
         function displaySummary(summary) {
@@ -375,9 +468,9 @@ TEMPLATE = """
             cards.style.display = 'grid';
 
             if (summary.all_ok) {
-                showStatus('✓ All records resolved successfully!', 'status-ok');
+                showStatus('All records resolved successfully!', 'status-ok');
             } else {
-                showStatus('⚠ Some records need attention', 'status-warning');
+                showStatus('Some records need attention', 'status-warning');
             }
         }
 
@@ -388,10 +481,13 @@ TEMPLATE = """
                 return;
             }
 
-            const groups = { OK: [], NOT_FOUND: [], MULTIPLE: [], ERROR: [] };
+            const groups = { NOT_FOUND: [], MULTIPLE: [], ERROR: [] };
             summary.results.forEach(result => {
-                groups[result.status] = groups[result.status] || [];
-                groups[result.status].push(result);
+                // Skip OK results - only show problems
+                if (result.status !== 'OK') {
+                    groups[result.status] = groups[result.status] || [];
+                    groups[result.status].push(result);
+                }
             });
 
             let html = '';
@@ -406,9 +502,7 @@ TEMPLATE = """
                     if (r.error) {
                         html += `<p><strong>Error:</strong> ${r.error}</p>`;
                     }
-                    if (r.status === 'OK') {
-                        html += `<p>Master ID: ${r.master_ids[0]}</p>`;
-                    } else if (r.status === 'MULTIPLE') {
+                    if (r.status === 'MULTIPLE') {
                         html += `<p>${r.master_ids.length} candidates found</p>`;
                     }
                     html += '</div>';
