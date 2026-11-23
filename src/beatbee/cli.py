@@ -56,6 +56,26 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Output file for the manual checklist",
     )
+    web = subcommands.add_parser(
+        "web",
+        help="Start the interactive web interface",
+    )
+    web.add_argument(
+        "--host",
+        default="localhost",
+        help="Host to bind to (default: localhost)",
+    )
+    web.add_argument(
+        "--port",
+        type=int,
+        default=5000,
+        help="Port to bind to (default: 5000)",
+    )
+    web.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable Flask debug mode",
+    )
     return parser
 
 
@@ -71,11 +91,6 @@ def main(
     if args.command is None:
         parser.print_help()
         return EXIT_OK
-    try:
-        validated = load_input(args.input)
-    except InputValidationError as exc:
-        print(f"Invalid input: {exc}", file=sys.stderr)
-        return EXIT_INVALID_INPUT
 
     if adapter is not None:
         selected_adapter = adapter
@@ -90,6 +105,26 @@ def main(
             )
         else:
             selected_adapter = DiscogsSearchClient(token)
+    
+    # Handle web command (no input file needed)
+    if args.command == "web":
+        from .web_app import run_server
+        run_server(
+            host=args.host,
+            port=args.port,
+            adapter=selected_adapter,
+            token=token,
+            debug=args.debug,
+        )
+        return EXIT_OK
+    
+    # All other commands require input file
+    try:
+        validated = load_input(args.input)
+    except InputValidationError as exc:
+        print(f"Invalid input: {exc}", file=sys.stderr)
+        return EXIT_INVALID_INPUT
+    
     total = len(validated.records)
     interactive = sys.stderr.isatty()
 

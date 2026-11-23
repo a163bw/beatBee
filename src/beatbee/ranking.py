@@ -10,7 +10,7 @@ def normalize(value: str) -> str:
 
 def rank_candidates(
     candidates: tuple[MasterCandidate, ...] | list[MasterCandidate],
-    query: Mapping[str, str | int],
+    query: Mapping[str, str | int | tuple[str, ...]],
 ) -> tuple[MasterCandidate, ...]:
     def text_match(field: str, candidate_value: str | None) -> bool:
         query_value = query.get(field)

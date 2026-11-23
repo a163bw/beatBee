@@ -27,10 +27,3 @@ Current publicly documented Discogs User Lists API resources provide list-readin
 ## Implementation boundary
 
 `Publisher.publish(list_name, ordered_master_ids)` is a separate port behind a capability/feature gate. Initially implement `ManifestExporter`, not a fake API writer. Automated publishing is an explicit later milestone, dependent on verified technical feasibility.
-
-## Phase 5 outcome
-
-The feasibility spike is complete with a **No-Go** result. The documented and live
-checked User List endpoints are read-only. See
-[PUBLISHING_SPIKE.md](PUBLISHING_SPIKE.md). Keep the publisher unavailable and
-use ordered manifest export/manual publication instead.

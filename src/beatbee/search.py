@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from .models import AlbumCandidate, MasterCandidate, SearchParams
+from .models import (
+    AlbumCandidate,
+    MasterCandidate,
+    ResourceCandidate,
+    SearchParams,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,11 +23,25 @@ class AlbumSearchOutcome:
     candidates: tuple[AlbumCandidate, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ResourceSearchOutcome:
+    resource_ids: tuple[int, ...] = ()
+    error: str | None = None
+    candidates: tuple[ResourceCandidate, ...] = ()
+
+
 class SearchAdapter(Protocol):
     def search(self, params: SearchParams) -> SearchOutcome:
         ...
 
     def search_albums(self, params: SearchParams) -> AlbumSearchOutcome:
+        ...
+
+    def search_resource_type(
+        self,
+        params: SearchParams,
+        resource_type: str,
+    ) -> ResourceSearchOutcome:
         ...
 
 
@@ -39,6 +58,7 @@ class FakeSearchAdapter:
             | None
         ) = None,
         default_album: AlbumSearchOutcome | None = None,
+        resource_outcomes: dict[str, ResourceSearchOutcome] | None = None,
     ) -> None:
         self._outcomes = outcomes
         self._default = default or SearchOutcome(error="Search adapter unavailable")
@@ -46,6 +66,7 @@ class FakeSearchAdapter:
         self._album_outcomes = album_outcomes
         self._default_album = default_album or AlbumSearchOutcome()
         self._album_position = 0
+        self._resource_outcomes = resource_outcomes or {}
 
     def search(self, params: SearchParams) -> SearchOutcome:
         self._position += 1
@@ -67,3 +88,13 @@ class FakeSearchAdapter:
             if self._album_position <= len(self._album_outcomes):
                 return self._album_outcomes[self._album_position - 1]
         return self._default_album
+
+    def search_resource_type(
+        self,
+        params: SearchParams,
+        resource_type: str,
+    ) -> ResourceSearchOutcome:
+        return self._resource_outcomes.get(
+            resource_type,
+            ResourceSearchOutcome(),
+        )

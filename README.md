@@ -134,11 +134,10 @@ python web.py
 Then open your browser to `http://localhost:5000/`.
 
 The web interface allows you to:
-- Upload and edit JSON configurations
-- Validate and search interactively
-- Review and edit search parameters
-- Download results as JSON and HTML
-- Export combined results as ZIP
+- Paste or edit a JSON list and run its initial search through the existing Python Core
+- Edit unresolved records independently and search Master, Release, Artist, and Label types
+- Inspect all results, explicitly confirm one result per record, and sort combined iO results
+- Download a Web-specific JSON export that preserves original record order, including unresolved records
 
 For advanced options:
 

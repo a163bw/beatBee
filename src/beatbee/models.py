@@ -5,12 +5,15 @@ from typing import Mapping
 
 
 SearchParams = Mapping[str, str | int]
+SearchQuery = Mapping[str, str | int | tuple[str, ...]]
+DISCOGS_RESOURCE_TYPES = ("master", "release", "artist", "label")
 
 
 @dataclass(frozen=True, slots=True)
 class SearchRecord:
     position: int
     params: SearchParams
+    search_types: tuple[str, ...] = ("master",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +32,7 @@ class ResultStatus(str, Enum):
 @dataclass(frozen=True, slots=True)
 class SearchResult:
     position: int
-    query: SearchParams
+    query: SearchQuery
     status: ResultStatus
     master_ids: tuple[int, ...] = ()
     error: str | None = None
@@ -37,6 +40,7 @@ class SearchResult:
     album_search_performed: bool = False
     album_ids: tuple[int, ...] = ()
     album_candidates: tuple["AlbumCandidate", ...] = ()
+    type_results: tuple["TypeSearchResult", ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,26 @@ class AlbumCandidate:
     artist: str | None = None
     release_title: str | None = None
     year: str | None = None
+    master_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TypeSearchResult:
+    resource_type: str
+    resource_ids: tuple[int, ...] = ()
+    status: ResultStatus = ResultStatus.NOT_FOUND
+    error: str | None = None
+    candidates: tuple["ResourceCandidate", ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceCandidate:
+    resource_id: int
+    title: str | None = None
+    artist: str | None = None
+    release_title: str | None = None
+    year: str | None = None
+    master_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

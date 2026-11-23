@@ -12,8 +12,18 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
-from .models import AlbumCandidate, MasterCandidate, SearchParams
-from .search import AlbumSearchOutcome, SearchAdapter, SearchOutcome
+from .models import (
+    AlbumCandidate,
+    MasterCandidate,
+    ResourceCandidate,
+    SearchParams,
+)
+from .search import (
+    AlbumSearchOutcome,
+    ResourceSearchOutcome,
+    SearchAdapter,
+    SearchOutcome,
+)
 
 
 RequestOpener = Callable[[urllib.request.Request, float], Any]
@@ -29,6 +39,7 @@ class _CandidateData:
     artist: str | None
     release_title: str | None
     year: str | None
+    master_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +248,34 @@ class DiscogsSearchClient(SearchAdapter):
                     artist=candidate.artist,
                     release_title=candidate.release_title,
                     year=candidate.year,
+                    master_id=candidate.master_id,
+                )
+                for candidate in outcome.candidates
+            ),
+        )
+
+    def search_resource_type(
+        self,
+        params: SearchParams,
+        resource_type: str,
+    ) -> ResourceSearchOutcome:
+        if resource_type not in {"master", "release", "artist", "label"}:
+            return ResourceSearchOutcome(
+                error=f"Unsupported Discogs resource type: {resource_type}."
+            )
+        outcome = self._search_resources(params, resource_type)
+        if outcome.error is not None:
+            return ResourceSearchOutcome(error=outcome.error)
+        return ResourceSearchOutcome(
+            resource_ids=outcome.resource_ids,
+            candidates=tuple(
+                ResourceCandidate(
+                    resource_id=candidate.resource_id,
+                    title=candidate.title,
+                    artist=candidate.artist,
+                    release_title=candidate.release_title,
+                    year=candidate.year,
+                    master_id=candidate.master_id,
                 )
                 for candidate in outcome.candidates
             ),
@@ -329,12 +368,20 @@ class DiscogsSearchClient(SearchAdapter):
 
                 raw_year = result.get("year")
                 year = str(raw_year) if isinstance(raw_year, (str, int)) and not isinstance(raw_year, bool) else None
+                raw_master_id = result.get("master_id")
                 candidates[resource_id] = _CandidateData(
                     resource_id=resource_id,
                     title=title,
                     artist=artist,
                     release_title=release_title,
                     year=year,
+                    master_id=(
+                        raw_master_id
+                        if isinstance(raw_master_id, int)
+                        and not isinstance(raw_master_id, bool)
+                        and raw_master_id > 0
+                        else None
+                    ),
                 )
                 if len(resource_ids) > self.max_results:
                     return _ResourceSearchOutcome(

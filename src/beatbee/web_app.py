@@ -2,13 +2,13 @@
 
 import json
 import logging
-from pathlib import Path
-from typing import Any
+import secrets
+import threading
 
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, jsonify, render_template_string, request, session
 
 from .web_server import InteractiveSessionManager
-from .search import FakeSearchAdapter, SearchOutcome
+from .search import FakeSearchAdapter
 from .discogs_client import DiscogsSearchClient
 
 
@@ -256,6 +256,33 @@ TEMPLATE = """
             background: #f0f4ff;
             border: 1px solid #ddd;
         }
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 20px;
+        }
+        .param-field-group label {
+            display: block;
+            width: auto !important;
+            margin-bottom: 4px;
+        }
+        .param-field-group input {
+            width: 100% !important;
+        }
+        .type-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+            border: 0;
+        }
+        .type-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            font-weight: 400;
+        }
         @media (max-width: 1024px) {
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
@@ -263,6 +290,11 @@ TEMPLATE = """
             button {
                 flex: none;
                 min-width: auto;
+            }
+        }
+        @media (max-width: 640px) {
+            .param-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -288,7 +320,7 @@ TEMPLATE = """
                     <button onclick="loadJSON()">Load JSON</button>
                     <button onclick="validateAndSearch()" class="btn-secondary">Validate & Search</button>
                     <button onclick="resetInput()" class="btn-secondary">Reset</button>
-                    <button onclick="downloadJSON()" class="btn-secondary">Download JSON</button>
+                    <button onclick="downloadJSON()" class="btn-secondary">Download confirmed JSON</button>
                     <button onclick="downloadAll()" class="btn-secondary">Download All (ZIP)</button>
                 </div>
 
@@ -314,16 +346,32 @@ TEMPLATE = """
 
             <!-- Resolved Results Panel -->
             <div class="panel" id="resolved-panel" style="display: none;">
-                <h2>Resolved Results</h2>
+                <h2>iO - Confirmed Results</h2>
+                <div class="button-group">
+                    <label for="sort-by">Sort by</label>
+                    <select id="sort-by" onchange="sortResolved()">
+                        <option value="position">Original position</option>
+                        <option value="artist">Artist / Name</option>
+                        <option value="title">Title</option>
+                        <option value="year">Year</option>
+                        <option value="resource_type">Resource type</option>
+                        <option value="resource_id">Discogs ID</option>
+                    </select>
+                    <select id="sort-direction" aria-label="Sort direction" onchange="sortResolved()">
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                    </select>
+                </div>
                 <table class="results-table" id="resolved-table">
                     <thead>
                         <tr>
-                            <th>Position</th>
-                            <th>Master ID</th>
+                            <th>Original position</th>
+                            <th>Artist / Name</th>
                             <th>Title</th>
-                            <th>Artist</th>
                             <th>Year</th>
-                            <th>Discogs Link</th>
+                            <th>Resource type</th>
+                            <th>Discogs ID</th>
+                            <th>Discogs URL</th>
                         </tr>
                     </thead>
                     <tbody id="resolved-tbody"></tbody>
@@ -339,7 +387,9 @@ TEMPLATE = """
                 "list_name": "Example Collection",
                 "records": [
                     {"artist": "Gábor Szabó", "release_title": "Dreams", "year": "1968"},
-                    {"artist": "Omega", "release_title": "10000 lépés", "year": "1969"}
+                    {"artist": "Omega", "release_title": "10000 lépés", "year": "1969"},
+                    {"artist": "NKS", "release_title": "*****", "year": "2006"},
+                    {"q": "Kovács Kati és az Locomotiv GT", "year": "1974"}
                 ]
             };
             document.getElementById('json-input').value = JSON.stringify(example, null, 2);
@@ -408,8 +458,7 @@ TEMPLATE = """
                 await new Promise(resolve => setTimeout(resolve, 300));
 
                 displaySummary(result);
-                displayResults(result);
-                displayResolvedTable(result.resolved || []);
+                await refreshWebState();
                 hideProgress();
             } catch (e) {
                 showStatus('Search failed: ' + e.message, 'status-error');
@@ -482,168 +531,259 @@ TEMPLATE = """
                     <div class="value">${counts.MULTIPLE || 0}</div>
                     <div class="label">Multiple</div>
                 </div>
+                <div class="summary-card">
+                    <div class="value">${counts.ERROR || 0}</div>
+                    <div class="label">Error</div>
+                </div>
             `;
             cards.style.display = 'grid';
 
-            if (summary.all_ok) {
-                showStatus('All records resolved successfully!', 'status-ok');
-            } else {
-                showStatus('Some records need attention', 'status-warning');
-            }
+            showStatus('Initial Core search complete.', 'status-ok');
         }
 
-        function displayResults(summary) {
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
+
+        function displayResults(state) {
             const container = document.getElementById('results-container');
-            if (!summary.results) {
-                container.innerHTML = '';
-                return;
-            }
-
-            const groups = { NOT_FOUND: [], MULTIPLE: [], ERROR: [] };
-            summary.results.forEach(result => {
-                // Skip OK results - only show problems
-                if (result.status !== 'OK') {
-                    groups[result.status] = groups[result.status] || [];
-                    groups[result.status].push(result);
-                }
-            });
-
-            let html = '';
-            for (const [status, results] of Object.entries(groups)) {
-                if (results.length === 0) continue;
-                html += `<div class="results-group"><h3>${status} (${results.length})</h3>`;
-                results.forEach(r => {
-                    const statusClass = status.toLowerCase().replace('_', '-');
-                    html += `<div class="result-item ${statusClass}">
-                        <div style="display: flex; align-items: start; gap: 15px;">
-                            <input type="checkbox" class="result-checkbox" data-position="${r.position}" data-status="${r.status}">
-                            <div style="flex: 1;">
-                                <strong>Position #${r.position}</strong>
-                                <div class="current-query">
-                                    <strong>Current Query:</strong>
-                                    <pre>${JSON.stringify(r.query, null, 2)}</pre>
-                                </div>`;
-                    
-                    if (r.error) {
-                        html += `<p><strong>Error:</strong> ${r.error}</p>`;
-                    }
-                    if (r.status === 'MULTIPLE') {
-                        html += `<p><strong>Candidates found (${r.master_ids.length}):</strong></p>`;
-                        if (r.candidates && r.candidates.length > 0) {
-                            html += '<ul style="margin-left: 20px; margin-top: 10px;">';
-                            r.candidates.forEach(c => {
-                                html += `<li><a href="https://www.discogs.com/master/${c.master_id}" target="_blank">${c.artist || "N/A"} - ${c.title || "N/A"} (${c.year || "N/A"})</a></li>`;
-                            });
-                            html += '</ul>';
-                        }
-                    }
-                    
-                    // Edit form
-                    html += `<div class="edit-form" id="form-${r.position}" style="margin-top: 15px; padding: 15px; background: white; border-radius: 4px; display: none;">
-                        <strong>Edit Search Parameters:</strong>
-                        <div style="margin-top: 10px;">`;
-                    
-                    // Build form fields from current query
-                    const fields = ['artist', 'release_title', 'title', 'year', 'q', 'genre', 'style', 'country', 'format', 'label', 'catno', 'barcode', 'track'];
-                    fields.forEach(field => {
-                        const value = r.query[field] || '';
-                        html += `<div style="margin-bottom: 10px;">
-                            <label style="display: inline-block; width: 100px; font-weight: 500;">${field}:</label>
-                            <input type="text" class="param-field" data-field="${field}" value="${value}" placeholder="${field}" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 300px;">
-                        </div>`;
-                    });
-                    
-                    html += `</div>
-                        <div style="margin-top: 15px;">
-                            <button onclick="submitResearch(${r.position})" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Re-search</button>
-                            <button onclick="toggleForm(${r.position})" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancel</button>
-                        </div>
-                    </div>
-                    
-                    <button onclick="toggleForm(${r.position})" style="margin-top: 10px; padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Edit Parameters</button>
-                            </div>
-                        </div>`;
-                    html += '</div>';
-                });
-                html += '</div>';
-            }
-            container.innerHTML = html;
+            const entries = state.nIO || [];
+            container.innerHTML = entries.length
+                ? `<h3>nIO - Unresolved positions (${entries.length})</h3>` +
+                    entries.map(renderRecordPanel).join('')
+                : '<h3>nIO - Unresolved positions</h3><p>There are no unresolved positions.</p>';
+            const resolved = state.iO || [];
+            displayResolvedTable(resolved);
+            displayWebProgress(state);
         }
 
-        function toggleForm(position) {
-            const form = document.getElementById(`form-${position}`);
-            if (form) {
-                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        function displayWebProgress(state) {
+            const core = state.core_counts || {};
+            const cards = document.getElementById('summary-cards');
+            cards.innerHTML = `
+                <div class="summary-card"><div class="value">${state.total}</div><div class="label">Total</div></div>
+                <div class="summary-card"><div class="value">${core.OK || 0}</div><div class="label">Core OK</div></div>
+                <div class="summary-card"><div class="value">${core.NOT_FOUND || 0}</div><div class="label">Core NOT_FOUND</div></div>
+                <div class="summary-card"><div class="value">${core.MULTIPLE || 0}</div><div class="label">Core MULTIPLE</div></div>
+                <div class="summary-card"><div class="value">${core.ERROR || 0}</div><div class="label">Core ERROR</div></div>
+                <div class="summary-card"><div class="value">${state.automatic_count || 0}</div><div class="label">Automatic iO</div></div>
+                <div class="summary-card"><div class="value">${state.manual_count || 0}</div><div class="label">Manual iO</div></div>
+                <div class="summary-card"><div class="value">${(state.nIO || []).length}</div><div class="label">nIO open</div></div>`;
+            cards.style.display = 'grid';
+            const message = `${state.automatic_count || 0} automatic iO, ` +
+                `${state.manual_count || 0} manually confirmed iO, ` +
+                `${(state.nIO || []).length} nIO remaining.`;
+            showStatus(message, state.nIO && state.nIO.length ? 'status-warning' : 'status-ok');
+        }
+
+        function renderRecordPanel(record) {
+            const fields = ['artist', 'release_title', 'title', 'year', 'q', 'genre',
+                'style', 'country', 'format', 'label', 'catno', 'barcode', 'track',
+                'credit', 'anv', 'submitter', 'contributor'];
+            const params = fields.map(field => `
+                <div class="param-field-group">
+                    <label>${field}:</label>
+                    <input type="text" class="param-field" data-field="${field}"
+                        value="${escapeHtml(record.draft[field] ?? '')}" placeholder="${field}"
+                        oninput="markDraftChanged(${record.position})">
+                </div>`).join('');
+            const selectedTypes = record.search_types || ['master'];
+            const typeOptions = ['master', 'release', 'artist', 'label'].map(type => `
+                <label><input type="checkbox" class="type-option" value="${type}"
+                    onchange="markDraftChanged(${record.position})"
+                    ${selectedTypes.includes(type) ? 'checked' : ''}> ${type}</label>`).join('');
+            const searches = Object.entries(record.type_searches || {}).map(([type, result]) =>
+                `<li>${escapeHtml(type)}: ${escapeHtml(result.status)}${result.error
+                    ? ` — ${escapeHtml(result.error)}` : ''}</li>`
+            ).join('');
+            const original = escapeHtml(JSON.stringify(record.original_record, null, 2));
+            return `<div class="result-item" id="panel-${record.position}">
+                <strong>Original position #${record.position}</strong>
+                <p>Technical status: <strong>${escapeHtml(record.technical_status)}</strong>
+                    ${record.technical_error ? ` — ${escapeHtml(record.technical_error)}` : ''}</p>
+                <details><summary>Original JSON record</summary><pre>${original}</pre></details>
+                <fieldset class="edit-form" style="margin-top: 12px; padding: 15px;">
+                    <legend>Edit search parameters</legend>
+                    <div class="param-grid">${params}</div>
+                    <fieldset class="type-options"><legend>Search resource types</legend>${typeOptions}</fieldset>
+                    <button onclick="submitResearch(${record.position})">Search</button>
+                </fieldset>
+                ${searches ? `<p>Latest searches:</p><ul>${searches}</ul>` : ''}
+                <div id="search-results-${record.position}">${renderSearchResults(record)}</div>
+            </div>`;
+        }
+
+        function renderSearchResults(record) {
+            if (!record.results || record.total_results === 0) {
+                return '<p>No results available for the latest search.</p>';
+            }
+            const selected = record.selected_candidate;
+            const rows = record.results.map(candidate => {
+                const checked = selected &&
+                    selected.resource_type === candidate.resource_type &&
+                    selected.resource_id === candidate.resource_id ? 'checked' : '';
+                return `<li>
+                    <label><input type="radio" name="candidate-${record.position}" ${checked}
+                        onchange="selectCandidate(${record.position}, '${candidate.resource_type}', ${candidate.resource_id})">
+                        ${escapeHtml(candidate.resource_type)} #${candidate.resource_id}</label>
+                    — ${escapeHtml(candidate.artist || candidate.title || 'N/A')}
+                    ${candidate.title ? ` — ${escapeHtml(candidate.title)}` : ''}
+                    ${candidate.year ? ` (${escapeHtml(candidate.year)})` : ''}
+                    <a href="${escapeHtml(candidate.url)}" target="_blank" rel="noopener noreferrer">Discogs</a>
+                </li>`;
+            }).join('');
+            const pages = record.total_pages > 1 ? `
+                <div class="button-group">
+                    <button ${record.page <= 1 ? 'disabled' : ''}
+                        onclick="loadResultPage(${record.position}, ${record.page - 1})">Previous</button>
+                    <span>Page ${record.page} of ${record.total_pages} (${record.total_results} results)</span>
+                    <button ${record.page >= record.total_pages ? 'disabled' : ''}
+                        onclick="loadResultPage(${record.position}, ${record.page + 1})">Next</button>
+                </div>` : `<p>${record.total_results} result(s)</p>`;
+            return `<ul>${rows}</ul>${pages}
+                <button id="confirm-${record.position}" ${selected ? '' : 'disabled'}
+                    onclick="confirmSelection(${record.position})">Confirm Selection</button>`;
+        }
+
+        function markDraftChanged(position) {
+            const results = document.getElementById(`search-results-${position}`);
+            if (results) {
+                results.innerHTML = '<p>Search parameters changed. Search again to choose a result.</p>';
             }
         }
 
         async function submitResearch(position) {
-            const form = document.getElementById(`form-${position}`);
+            const form = document.getElementById(`panel-${position}`);
             const fields = form.querySelectorAll('.param-field');
             const params = {};
             fields.forEach(field => {
                 const value = field.value.trim();
                 if (value) {
                     const fieldName = field.getAttribute('data-field');
-                    params[fieldName] = isNaN(value) ? value : parseInt(value);
+                    params[fieldName] = value;
                 }
             });
+            const types = Array.from(form.querySelectorAll('.type-option:checked'))
+                .map(field => field.value);
 
-            if (Object.keys(params).length === 0) {
-                alert('Please enter at least one search parameter');
+            if (types.length === 0) {
+                alert('Select at least one search type');
                 return;
             }
-
             showProgress(0, 'Re-searching...');
             try {
-                const response = await fetch('/api/research', {
+                const response = await fetch('/api/record/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        record_index: position - 1,  // Convert 1-based to 0-based
-                        params: params
+                        record_index: position - 1,
+                        params: params,
+                        search_types: types
                     })
                 });
                 const result = await response.json();
-                
-                if (result.status === 'ok') {
-                    showProgress(100, 'Complete!');
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                    hideProgress();
-                    
-                    // Refresh the results
-                    const summary = await (await fetch('/api/validate', { method: 'POST' })).json();
-                    displayResults(summary);
-                    displayResolvedTable(result.resolved || []);
-                    showStatus('Record re-searched successfully!', 'status-ok');
+                if (response.ok && result.status === 'ok') {
+                    await refreshWebState();
+                    showStatus('Search complete. Select and confirm one result.', 'status-warning');
                 } else {
-                    showStatus(result.message || 'Re-search failed', 'status-error');
-                    hideProgress();
+                    showStatus(result.message || 'Search failed', 'status-error');
                 }
             } catch (e) {
-                showStatus('Re-search error: ' + e.message, 'status-error');
+                showStatus('Search error: ' + e.message, 'status-error');
+            } finally {
                 hideProgress();
             }
+        }
+
+        async function refreshWebState(sortBy, direction) {
+            const sortByControl = document.getElementById('sort-by');
+            const directionControl = document.getElementById('sort-direction');
+            sortBy = sortBy || (sortByControl && sortByControl.value);
+            direction = direction || (directionControl && directionControl.value);
+            const query = new URLSearchParams();
+            if (sortBy) query.set('sort_by', sortBy);
+            if (direction) query.set('direction', direction);
+            const response = await fetch('/api/state?' + query.toString());
+            const state = await response.json();
+            if (!response.ok) {
+                showStatus(state.message || 'Could not load session state', 'status-error');
+                return;
+            }
+            displayResults(state);
+        }
+
+        async function loadResultPage(position, page) {
+            const response = await fetch(
+                `/api/record/results?record_index=${position - 1}&page=${page}`
+            );
+            const result = await response.json();
+            if (!response.ok) {
+                showStatus(result.message || 'Could not load search results', 'status-error');
+                return;
+            }
+            document.getElementById(`search-results-${position}`).innerHTML =
+                renderSearchResults(result);
+        }
+
+        async function selectCandidate(position, resourceType, resourceId) {
+            const response = await fetch('/api/record/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    record_index: position - 1,
+                    resource_type: resourceType,
+                    resource_id: resourceId
+                })
+            });
+            const result = await response.json();
+            if (!response.ok || result.status !== 'ok') {
+                showStatus(result.message || 'Could not select result', 'status-error');
+                return;
+            }
+            document.getElementById(`confirm-${position}`).disabled = false;
+        }
+
+        async function confirmSelection(position) {
+            const response = await fetch('/api/record/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ record_index: position - 1 })
+            });
+            const result = await response.json();
+            if (!response.ok || result.status !== 'ok') {
+                showStatus(result.message || 'Could not confirm selection', 'status-error');
+                return;
+            }
+            await refreshWebState();
+        }
+
+        async function sortResolved() {
+            await refreshWebState(
+                document.getElementById('sort-by').value,
+                document.getElementById('sort-direction').value
+            );
         }
 
         function displayResolvedTable(resolved) {
             const tbody = document.getElementById('resolved-tbody');
             const panel = document.getElementById('resolved-panel');
-            if (resolved.length === 0) {
+            if (!resolved.length) {
                 panel.style.display = 'none';
                 return;
             }
             panel.style.display = 'block';
-            tbody.innerHTML = resolved.map(r => `
+            tbody.innerHTML = resolved.map(row => `
                 <tr>
-                    <td>${r.position}</td>
-                    <td>${r.master_id}</td>
-                    <td>${r.title || 'N/A'}</td>
-                    <td>${r.artist || 'N/A'}</td>
-                    <td>${r.year || 'N/A'}</td>
-                    <td><a href="https://www.discogs.com/master/${r.master_id}" target="_blank" class="master-link">View</a></td>
-                </tr>
-            `).join('');
+                    <td>${row.position}</td>
+                    <td>${escapeHtml(row.artist || 'N/A')}</td>
+                    <td>${escapeHtml(row.title || 'N/A')}</td>
+                    <td>${escapeHtml(row.year || 'N/A')}</td>
+                    <td>${escapeHtml(row.resource_type)}</td>
+                    <td>${row.resource_id}</td>
+                    <td><a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">View</a></td>
+                </tr>`).join('');
         }
     </script>
 </body>
@@ -655,6 +795,8 @@ def create_app(adapter=None, token: str | None = None):
     """Create and configure the Flask application."""
     app = Flask(__name__)
     app.config['JSON_SORT_KEYS'] = False
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
     # Initialize session manager
     if adapter is None:
@@ -666,7 +808,21 @@ def create_app(adapter=None, token: str | None = None):
         else:
             adapter = FakeSearchAdapter()
 
-    manager = InteractiveSessionManager(adapter=adapter)
+    app.secret_key = secrets.token_hex(32)
+    managers: dict[str, InteractiveSessionManager] = {}
+    managers_lock = threading.Lock()
+
+    def request_manager() -> InteractiveSessionManager:
+        manager_id = session.get("beatbee_session_id")
+        if not isinstance(manager_id, str):
+            manager_id = secrets.token_urlsafe(32)
+            session["beatbee_session_id"] = manager_id
+        with managers_lock:
+            manager = managers.get(manager_id)
+            if manager is None:
+                manager = InteractiveSessionManager(adapter=adapter)
+                managers[manager_id] = manager
+        return manager
 
     @app.route('/')
     def index():
@@ -678,7 +834,7 @@ def create_app(adapter=None, token: str | None = None):
         """Load JSON input."""
         try:
             document = request.get_json()
-            result = manager.load_input(document)
+            result = request_manager().load_input(document)
             return jsonify(result)
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
@@ -687,6 +843,7 @@ def create_app(adapter=None, token: str | None = None):
     def api_validate():
         """Validate and search."""
         try:
+            manager = request_manager()
             summary_dict = manager.run_validation()
             if summary_dict is None:
                 return jsonify({"status": "error", "message": "No session loaded"}), 400
@@ -701,7 +858,7 @@ def create_app(adapter=None, token: str | None = None):
     def api_reset():
         """Reset to original input."""
         try:
-            result = manager.reset_to_original()
+            result = request_manager().reset_to_original()
             return jsonify(result)
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
@@ -711,6 +868,7 @@ def create_app(adapter=None, token: str | None = None):
         """Re-search a single record with updated parameters."""
         try:
             data = request.get_json()
+            manager = request_manager()
             record_index = data.get('record_index')
             new_params = data.get('params', {})
             
@@ -727,11 +885,74 @@ def create_app(adapter=None, token: str | None = None):
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
 
+    @app.route('/api/state')
+    def api_state():
+        try:
+            manager = request_manager()
+            state = manager.get_web_state(
+                sort_by=request.args.get("sort_by", "position"),
+                direction=request.args.get("direction", "asc"),
+            )
+            return jsonify(state)
+        except (ValueError, TypeError) as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.route('/api/record/search', methods=['POST'])
+    def api_record_search():
+        try:
+            data = request.get_json()
+            if not isinstance(data, dict):
+                return jsonify({"status": "error", "message": "Request must be a JSON object"}), 400
+            result = request_manager().search_record(
+                data.get("record_index"),
+                data.get("params"),
+                data.get("search_types"),
+            )
+            return jsonify(result), (200 if result["status"] == "ok" else 400)
+        except (ValueError, TypeError) as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.route('/api/record/results')
+    def api_record_results():
+        try:
+            record_index = int(request.args.get("record_index", ""))
+            page = int(request.args.get("page", "1"))
+            result = request_manager().get_record_results(record_index, page)
+            return jsonify(result)
+        except (ValueError, TypeError) as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.route('/api/record/select', methods=['POST'])
+    def api_record_select():
+        try:
+            data = request.get_json()
+            if not isinstance(data, dict):
+                return jsonify({"status": "error", "message": "Request must be a JSON object"}), 400
+            result = request_manager().select_candidate(
+                data.get("record_index"),
+                data.get("resource_type"),
+                data.get("resource_id"),
+            )
+            return jsonify(result), (200 if result["status"] == "ok" else 400)
+        except (ValueError, TypeError) as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.route('/api/record/confirm', methods=['POST'])
+    def api_record_confirm():
+        try:
+            data = request.get_json()
+            if not isinstance(data, dict):
+                return jsonify({"status": "error", "message": "Request must be a JSON object"}), 400
+            result = request_manager().confirm_selection(data.get("record_index"))
+            return jsonify(result), (200 if result["status"] == "ok" else 400)
+        except (ValueError, TypeError) as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
     @app.route('/api/download/json')
     def api_download_json():
         """Download current JSON."""
         try:
-            current = manager.get_current_input()
+            current = request_manager().get_export_input()
             if not current:
                 return jsonify({"error": "No session loaded"}), 400
             
@@ -750,7 +971,8 @@ def create_app(adapter=None, token: str | None = None):
             import zipfile
             import io
 
-            current = manager.get_current_input()
+            manager = request_manager()
+            current = manager.get_export_input()
             if not current:
                 return jsonify({"error": "No session loaded"}), 400
 

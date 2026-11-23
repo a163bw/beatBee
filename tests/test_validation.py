@@ -31,11 +31,54 @@ class ValidationTests(unittest.TestCase):
         )
         self.assertEqual(validated.records[0].params["type"], "master")
 
-    def test_rejects_wrong_master_type(self) -> None:
+    def test_accepts_single_and_multiple_resource_types(self) -> None:
+        for raw_type, expected in (
+            ("release", ("release",)),
+            (["master", "release"], ("master", "release")),
+        ):
+            with self.subTest(raw_type=raw_type):
+                validated = validate_document(
+                    {
+                        "list_name": "Test",
+                        "records": [{"title": "Album", "type": raw_type}],
+                    }
+                )
+                self.assertEqual(validated.records[0].search_types, expected)
+
+    def test_defaults_search_type_to_master(self) -> None:
+        validated = validate_document(
+            {"list_name": "Test", "records": [{"title": "Album"}]}
+        )
+        self.assertEqual(validated.records[0].search_types, ("master",))
+
+    def test_exported_master_id_is_metadata_not_a_search_parameter(self) -> None:
+        validated = validate_document(
+            {
+                "list_name": "Test",
+                "records": [{"title": "Album", "master_id": 42}],
+            }
+        )
+        self.assertEqual(validated.records[0].params["title"], "Album")
+        self.assertNotIn("master_id", validated.records[0].params)
+
         with self.assertRaises(InputValidationError):
             validate_document(
-                {"list_name": "Test", "records": [{"title": "Album", "type": "release"}]}
+                {
+                    "list_name": "Test",
+                    "records": [{"title": "Album", "master_id": "42"}],
+                }
             )
+
+    def test_rejects_invalid_or_duplicate_search_types(self) -> None:
+        for value in ([], ["master", "master"], "unknown", ["artist", 1]):
+            with self.subTest(value=value):
+                with self.assertRaises(InputValidationError):
+                    validate_document(
+                        {
+                            "list_name": "Test",
+                            "records": [{"title": "Album", "type": value}],
+                        }
+                    )
 
     def test_rejects_unknown_and_reserved_keys(self) -> None:
         for record in (
@@ -54,6 +97,8 @@ class ValidationTests(unittest.TestCase):
             {"list_name": "", "records": [{"title": "Album"}]},
             {"list_name": "Test", "records": []},
             {"list_name": "Test", "records": [{}]},
+            {"list_name": "Test", "records": [{"type": "master"}]},
+            {"list_name": "Test", "records": [{"master_id": 42}]},
             {"list_name": "Test", "records": [{"title": []}]},
         )
         for document in invalid:

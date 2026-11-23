@@ -226,6 +226,7 @@ class DiscogsClientTests(unittest.TestCase):
                             "type": "release",
                             "title": "Omega - Album",
                             "year": "1970",
+                            "master_id": 42,
                         }
                     ],
                 }
@@ -238,7 +239,37 @@ class DiscogsClientTests(unittest.TestCase):
         self.assertIsNone(outcome.error)
         self.assertEqual(outcome.release_ids, (123,))
         self.assertEqual(outcome.candidates[0].title, "Omega - Album")
+        self.assertEqual(outcome.candidates[0].master_id, 42)
         self.assertIn("type=release", requests[0].full_url)
+
+    def test_search_resource_type_supports_artist_and_preserves_master_id(self) -> None:
+        requests: list[urllib.request.Request] = []
+
+        def opener(request: urllib.request.Request, timeout: float) -> MockResponse:
+            requests.append(request)
+            return MockResponse(
+                {
+                    "pagination": {"page": 1, "pages": 1},
+                    "results": [
+                        {
+                            "id": 123,
+                            "type": "artist",
+                            "title": "Omega",
+                            "master_id": 42,
+                        }
+                    ],
+                }
+            )
+
+        outcome = DiscogsSearchClient(
+            "test-token",
+            opener=opener,
+        ).search_resource_type({"title": "Omega"}, "artist")
+
+        self.assertIsNone(outcome.error)
+        self.assertEqual(outcome.resource_ids, (123,))
+        self.assertEqual(outcome.candidates[0].master_id, 42)
+        self.assertIn("type=artist", requests[0].full_url)
 
     def test_unexpected_resource_is_error(self) -> None:
         client = DiscogsSearchClient(

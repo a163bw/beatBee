@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .models import SearchRecord, ValidatedList, immutable_params
+from .models import (
+    DISCOGS_RESOURCE_TYPES,
+    SearchRecord,
+    ValidatedList,
+    immutable_params,
+)
 
 
 ALLOWED_SEARCH_PARAMS = frozenset(
@@ -28,6 +33,7 @@ ALLOWED_SEARCH_PARAMS = frozenset(
     }
 )
 RESERVED_PARAMS = frozenset({"page", "per_page"})
+RECORD_METADATA_KEYS = frozenset({"master_id"})
 
 
 class InputValidationError(ValueError):
@@ -61,7 +67,12 @@ def validate_document(document: Any) -> ValidatedList:
         if not record:
             raise InputValidationError(f"Record {position} must not be empty.")
 
-        unknown = set(record) - ALLOWED_SEARCH_PARAMS - RESERVED_PARAMS
+        unknown = (
+            set(record)
+            - ALLOWED_SEARCH_PARAMS
+            - RESERVED_PARAMS
+            - RECORD_METADATA_KEYS
+        )
         if unknown:
             raise InputValidationError(
                 f"Record {position} has unknown or reserved keys: "
@@ -75,14 +86,47 @@ def validate_document(document: Any) -> ValidatedList:
                 f"{', '.join(sorted(reserved))}"
             )
 
-        if "type" in record and record["type"] != "master":
+        raw_types = record.get("type", "master")
+        if isinstance(raw_types, str):
+            search_types = (raw_types,)
+        elif isinstance(raw_types, list) and raw_types:
+            search_types = tuple(raw_types)
+        else:
             raise InputValidationError(
-                f"Record {position} has type={record['type']!r}; only "
-                "'master' or no type is allowed."
+                f"Record {position} type must be a resource type or a nonempty array."
+            )
+        if any(
+            not isinstance(resource_type, str)
+            or resource_type not in DISCOGS_RESOURCE_TYPES
+            for resource_type in search_types
+        ):
+            raise InputValidationError(
+                f"Record {position} type values must be one of: "
+                f"{', '.join(DISCOGS_RESOURCE_TYPES)}."
+            )
+        if len(set(search_types)) != len(search_types):
+            raise InputValidationError(
+                f"Record {position} type values must not contain duplicates."
+            )
+        if "master_id" in record:
+            master_id = record["master_id"]
+            if (
+                isinstance(master_id, bool)
+                or not isinstance(master_id, int)
+                or master_id <= 0
+            ):
+                raise InputValidationError(
+                    f"Record {position} master_id must be a positive integer."
+                )
+        if not any(key not in {"type", "master_id"} for key in record):
+            raise InputValidationError(
+                f"Record {position} must include at least one search parameter."
             )
 
         params: dict[str, str | int] = {}
         for key, value in record.items():
+            if key in {"type", "master_id"}:
+                continue
             if isinstance(value, bool) or not isinstance(value, (str, int)):
                 raise InputValidationError(
                     f"Record {position} parameter {key!r} must be a string or integer."
@@ -95,7 +139,11 @@ def validate_document(document: Any) -> ValidatedList:
 
         params["type"] = "master"
         validated_records.append(
-            SearchRecord(position=position, params=immutable_params(params))
+            SearchRecord(
+                position=position,
+                params=immutable_params(params),
+                search_types=search_types,
+            )
         )
 
     return ValidatedList(

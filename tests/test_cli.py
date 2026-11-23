@@ -25,7 +25,7 @@ class CliTests(unittest.TestCase):
         return path
 
     def test_invalid_input_has_exit_two_and_no_search(self) -> None:
-        path = self.write_input('{"list_name":"Test","records":[{"type":"release"}]}')
+        path = self.write_input('{"list_name":"Test","records":[{"type":"cassette"}]}')
         adapter = FakeSearchAdapter()
         output = io.StringIO()
 

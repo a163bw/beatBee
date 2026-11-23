@@ -4,6 +4,7 @@ from beatbee.models import AlbumCandidate, ResultStatus, SearchParams
 from beatbee.search import (
     AlbumSearchOutcome,
     FakeSearchAdapter,
+    ResourceSearchOutcome,
     SearchOutcome,
 )
 from beatbee.service import search_all
@@ -36,6 +37,13 @@ class ServiceTests(unittest.TestCase):
                     release_ids=(23,),
                     candidates=(AlbumCandidate(23, title="Omega - Album"),),
                 )
+
+            def search_resource_type(
+                self,
+                params: SearchParams,
+                resource_type: str,
+            ) -> ResourceSearchOutcome:
+                return ResourceSearchOutcome()
 
         validated = validate_document(
             {
@@ -145,6 +153,77 @@ class ServiceTests(unittest.TestCase):
         summary = search_all(validated, adapter)
 
         self.assertEqual(len(summary.results), 3)
+
+    def test_selected_release_search_can_resolve_associated_master(self) -> None:
+        validated = validate_document(
+            {
+                "list_name": "Test",
+                "records": [{"title": "Album", "type": ["release"]}],
+            }
+        )
+        adapter = FakeSearchAdapter(
+            album_outcomes=(
+                AlbumSearchOutcome(
+                    release_ids=(23,),
+                    candidates=(
+                        AlbumCandidate(
+                            release_id=23,
+                            title="Artist - Album",
+                            master_id=7,
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        result = search_all(validated, adapter).results[0]
+
+        self.assertEqual(result.status, ResultStatus.OK)
+        self.assertEqual(result.master_ids, (7,))
+        self.assertEqual(result.type_results[0].resource_type, "release")
+        self.assertEqual(result.type_results[0].resource_ids, (23,))
+
+    def test_selected_non_master_types_are_searched_but_do_not_resolve(self) -> None:
+        validated = validate_document(
+            {
+                "list_name": "Test",
+                "records": [{"title": "Album", "type": ["artist", "label"]}],
+            }
+        )
+        adapter = FakeSearchAdapter(
+            resource_outcomes={
+                "artist": ResourceSearchOutcome(resource_ids=(10,)),
+                "label": ResourceSearchOutcome(resource_ids=(20,)),
+            }
+        )
+
+        result = search_all(validated, adapter).results[0]
+
+        self.assertEqual(result.status, ResultStatus.NOT_FOUND)
+        self.assertEqual(result.master_ids, ())
+        self.assertEqual(
+            [item.status for item in result.type_results],
+            [ResultStatus.OK, ResultStatus.OK],
+        )
+
+    def test_automatic_release_fallback_master_id_stays_diagnostic(self) -> None:
+        validated = validate_document(
+            {"list_name": "Test", "records": [{"title": "Album"}]}
+        )
+        adapter = FakeSearchAdapter(
+            (SearchOutcome(),),
+            album_outcomes=(
+                AlbumSearchOutcome(
+                    release_ids=(23,),
+                    candidates=(AlbumCandidate(release_id=23, master_id=7),),
+                ),
+            ),
+        )
+
+        result = search_all(validated, adapter).results[0]
+
+        self.assertEqual(result.status, ResultStatus.NOT_FOUND)
+        self.assertEqual(result.master_ids, ())
 
 
 if __name__ == "__main__":
