@@ -238,6 +238,24 @@ TEMPLATE = """
         .result-item.not-found { border-left-color: #ffc107; }
         .result-item.multiple { border-left-color: #17a2b8; }
         .result-item.error { border-left-color: #dc3545; }
+        .current-query {
+            margin-top: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .current-query pre {
+            margin: 10px 0 0 0;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            overflow-x: auto;
+        }
+        .edit-form {
+            background: #f0f4ff;
+            border: 1px solid #ddd;
+        }
         @media (max-width: 1024px) {
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
@@ -497,19 +515,115 @@ TEMPLATE = """
                 results.forEach(r => {
                     const statusClass = status.toLowerCase().replace('_', '-');
                     html += `<div class="result-item ${statusClass}">
-                        <strong>Position #${r.position}</strong>
-                        <pre>${JSON.stringify(r.query, null, 2)}</pre>`;
+                        <div style="display: flex; align-items: start; gap: 15px;">
+                            <input type="checkbox" class="result-checkbox" data-position="${r.position}" data-status="${r.status}">
+                            <div style="flex: 1;">
+                                <strong>Position #${r.position}</strong>
+                                <div class="current-query">
+                                    <strong>Current Query:</strong>
+                                    <pre>${JSON.stringify(r.query, null, 2)}</pre>
+                                </div>`;
+                    
                     if (r.error) {
                         html += `<p><strong>Error:</strong> ${r.error}</p>`;
                     }
                     if (r.status === 'MULTIPLE') {
-                        html += `<p>${r.master_ids.length} candidates found</p>`;
+                        html += `<p><strong>Candidates found (${r.master_ids.length}):</strong></p>`;
+                        if (r.candidates && r.candidates.length > 0) {
+                            html += '<ul style="margin-left: 20px; margin-top: 10px;">';
+                            r.candidates.forEach(c => {
+                                html += `<li><a href="https://www.discogs.com/master/${c.master_id}" target="_blank">${c.artist || "N/A"} - ${c.title || "N/A"} (${c.year || "N/A"})</a></li>`;
+                            });
+                            html += '</ul>';
+                        }
                     }
+                    
+                    // Edit form
+                    html += `<div class="edit-form" id="form-${r.position}" style="margin-top: 15px; padding: 15px; background: white; border-radius: 4px; display: none;">
+                        <strong>Edit Search Parameters:</strong>
+                        <div style="margin-top: 10px;">`;
+                    
+                    // Build form fields from current query
+                    const fields = ['artist', 'release_title', 'title', 'year', 'q', 'genre', 'style', 'country', 'format', 'label', 'catno', 'barcode', 'track'];
+                    fields.forEach(field => {
+                        const value = r.query[field] || '';
+                        html += `<div style="margin-bottom: 10px;">
+                            <label style="display: inline-block; width: 100px; font-weight: 500;">${field}:</label>
+                            <input type="text" class="param-field" data-field="${field}" value="${value}" placeholder="${field}" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 300px;">
+                        </div>`;
+                    });
+                    
+                    html += `</div>
+                        <div style="margin-top: 15px;">
+                            <button onclick="submitResearch(${r.position})" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Re-search</button>
+                            <button onclick="toggleForm(${r.position})" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancel</button>
+                        </div>
+                    </div>
+                    
+                    <button onclick="toggleForm(${r.position})" style="margin-top: 10px; padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Edit Parameters</button>
+                            </div>
+                        </div>`;
                     html += '</div>';
                 });
                 html += '</div>';
             }
             container.innerHTML = html;
+        }
+
+        function toggleForm(position) {
+            const form = document.getElementById(`form-${position}`);
+            if (form) {
+                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        async function submitResearch(position) {
+            const form = document.getElementById(`form-${position}`);
+            const fields = form.querySelectorAll('.param-field');
+            const params = {};
+            fields.forEach(field => {
+                const value = field.value.trim();
+                if (value) {
+                    const fieldName = field.getAttribute('data-field');
+                    params[fieldName] = isNaN(value) ? value : parseInt(value);
+                }
+            });
+
+            if (Object.keys(params).length === 0) {
+                alert('Please enter at least one search parameter');
+                return;
+            }
+
+            showProgress(0, 'Re-searching...');
+            try {
+                const response = await fetch('/api/research', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        record_index: position - 1,  // Convert 1-based to 0-based
+                        params: params
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    showProgress(100, 'Complete!');
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    hideProgress();
+                    
+                    // Refresh the results
+                    const summary = await (await fetch('/api/validate', { method: 'POST' })).json();
+                    displayResults(summary);
+                    displayResolvedTable(result.resolved || []);
+                    showStatus('Record re-searched successfully!', 'status-ok');
+                } else {
+                    showStatus(result.message || 'Re-search failed', 'status-error');
+                    hideProgress();
+                }
+            } catch (e) {
+                showStatus('Re-search error: ' + e.message, 'status-error');
+                hideProgress();
+            }
         }
 
         function displayResolvedTable(resolved) {
@@ -588,6 +702,27 @@ def create_app(adapter=None, token: str | None = None):
         """Reset to original input."""
         try:
             result = manager.reset_to_original()
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+
+    @app.route('/api/research', methods=['POST'])
+    def api_research():
+        """Re-search a single record with updated parameters."""
+        try:
+            data = request.get_json()
+            record_index = data.get('record_index')
+            new_params = data.get('params', {})
+            
+            if record_index is None:
+                return jsonify({"status": "error", "message": "Missing record_index"}), 400
+            
+            result = manager.research_record(record_index, new_params)
+            
+            # Add updated resolved results
+            if result.get("status") == "ok":
+                result["resolved"] = manager.get_resolved_results()
+            
             return jsonify(result)
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
